@@ -6,6 +6,9 @@ import { ReportsController } from './reports.controller';
 import { ReportsRepository } from './reports.repository';
 import { ReportsService } from './reports.service';
 
-@Module({ imports: [TypeOrmModule.forFeature([Report]), EmailModule],
-  controllers: [ReportsController], providers: [ReportsService, ReportsRepository] })
+@Module({
+  imports: [TypeOrmModule.forFeature([Report]), EmailModule],
+  controllers: [ReportsController],
+  providers: [ReportsService, ReportsRepository],
+})
 export class ReportsModule {}

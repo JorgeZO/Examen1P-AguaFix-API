@@ -5,6 +5,12 @@ import { ReportsRepository } from './reports.repository';
 @Injectable()
 export class ReportsService {
   constructor(private readonly reportsRepository: ReportsRepository) {}
-  create(dto: CreateReportDto) { return this.reportsRepository.create(dto); }
-  findAll() { return this.reportsRepository.findAll(); }
+
+  create(dto: CreateReportDto) {
+    return this.reportsRepository.create(dto);
+  }
+
+  findAll() {
+    return this.reportsRepository.findAll();
+  }
 }

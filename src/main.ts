@@ -10,4 +10,7 @@ async function bootstrap(): Promise<void> {
   app.enableShutdownHooks();
   await app.listen(envs.port, envs.host);
 }
-bootstrap().catch(() => { console.error('No se pudo iniciar la API. Revise la configuración y PostgreSQL.'); process.exitCode = 1; });
+bootstrap().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

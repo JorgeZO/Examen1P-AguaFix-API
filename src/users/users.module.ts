@@ -4,5 +4,9 @@ import { User } from './entities/user.entity';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
 
-@Module({ imports: [TypeOrmModule.forFeature([User])], providers: [UsersRepository, UsersService], exports: [UsersService] })
+@Module({
+  imports: [TypeOrmModule.forFeature([User])],
+  providers: [UsersRepository, UsersService],
+  exports: [UsersService],
+})
 export class UsersModule {}

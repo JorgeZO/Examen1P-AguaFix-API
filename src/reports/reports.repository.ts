@@ -6,11 +6,16 @@ import { Report } from './entities/report.entity';
 
 @Injectable()
 export class ReportsRepository {
-  constructor(@InjectRepository(Report) private readonly repository: Repository<Report>) {}
+  constructor(
+    @InjectRepository(Report) private readonly repository: Repository<Report>,
+  ) {}
+
   create(dto: CreateReportDto): Promise<Report> {
-    return this.repository.save(this.repository.create(dto));
+    const report = this.repository.create(dto);
+    return this.repository.save(report);
   }
+
   findAll(): Promise<Report[]> {
-    return this.repository.find({ order: { createdAt: 'DESC', id: 'DESC' } });
+    return this.repository.find();
   }
 }

@@ -6,10 +6,16 @@ import { User } from './entities/user.entity';
 
 @Injectable()
 export class UsersRepository {
-  constructor(@InjectRepository(User) private readonly repository: Repository<User>) {}
-  create(dto: CreateUserDto): Promise<User> { return this.repository.save(this.repository.create(dto)); }
-  findByEmailWithPassword(email: string): Promise<User | null> {
-    return this.repository.createQueryBuilder('user').addSelect('user.password')
-      .where('user.email = :email', { email }).getOne();
+  constructor(
+    @InjectRepository(User) private readonly repository: Repository<User>,
+  ) {}
+
+  create(dto: CreateUserDto): Promise<User> {
+    const user = this.repository.create(dto);
+    return this.repository.save(user);
+  }
+
+  findByEmail(email: string): Promise<User | null> {
+    return this.repository.findOneBy({ email });
   }
 }

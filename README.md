@@ -1,10 +1,10 @@
-# API municipal de fugas de agua
+# API de reportes de fugas de agua
 
-Proyecto de primer parcial: NestJS **11**, TypeScript, PostgreSQL, TypeORM con migraciones, `env-var` + `dotenv`, `bcryptjs` y Nodemailer.
+Proyecto del primer parcial con los cuatro endpoints solicitados, NestJS 11, TypeScript y PostgreSQL.
 
-## Ejecutar
+## Cómo ejecutarlo
 
-Requisitos: Node.js 20 o superior, npm y Docker con Compose. También puede usarse una instalación local de PostgreSQL y un servidor SMTP.
+Requisitos: Node.js 20 o superior, npm y Docker Desktop iniciado.
 
 ```bash
 npm ci
@@ -15,109 +15,75 @@ npm run build
 npm start
 ```
 
-API: `http://127.0.0.1:3000`. Buzón de prueba Mailpit: `http://127.0.0.1:8025`. Los correos de Mailpit se capturan localmente; no se entregan a personas reales. Para desarrollo: `npm run start:dev`.
+La API escucha en `http://127.0.0.1:3000`. El buzón de correos de prueba se abre en `http://127.0.0.1:8025`.
 
-Si usa PostgreSQL instalado localmente, cree una base y configure `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD` y `DB_DATABASE` en `.env`; omita Compose si también dispone de SMTP. Todas las variables se leen y validan en `src/config/envs.ts`. El servidor escucha en localhost; para un contenedor o despliegue, configure `HOST=0.0.0.0`.
+Compose solo prepara PostgreSQL y Mailpit, el receptor SMTP local. Si ya tiene PostgreSQL y SMTP, configure sus datos en `.env` y omita el comando de Compose. Para ejecutar TypeScript directamente: `npm run start:dev`.
 
-Para correo real, configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` y `MAINTENANCE_EMAIL`. Normalmente se usa `SMTP_SECURE=true` en 465 o `false` en 587 con STARTTLS. Las credenciales no se versionan.
+Las variables de entorno se leen con `dotenv` y `env-var` en `src/config/envs.ts`. Para enviar correos externos, configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` y `MAINTENANCE_EMAIL`. Para Mailpit, el usuario y la contraseña SMTP se dejan vacíos.
 
 ## Endpoints
 
-| Método y ruta | Entrada | Resultado |
-|---|---|---|
-| `POST /auth/register` | `CreateUserDto`: name, email, password, isNotificationEnabled opcional | 201: usuario sin contraseña |
-| `POST /auth/login` | `LoginDto`: email, password | 200: mensaje y usuario sin contraseña; 400: credenciales inválidas |
-| `POST /reports` | `CreateReportDto`: address, description, severity, reporterPhone | 201: reporte persistido y estado del correo |
-| `GET /reports` | Sin body ni parámetros | 200: lista de reportes, más recientes primero |
+| Método | Ruta | DTO de entrada | Respuesta |
+|---|---|---|---|
+| POST | `/auth/register` | `CreateUserDto` | 201: usuario sin contraseña |
+| POST | `/auth/login` | `LoginDto` | 200: usuario sin contraseña; 400: credenciales incorrectas |
+| POST | `/reports` | `CreateReportDto` | 201: reporte guardado, después de enviar el correo |
+| GET | `/reports` | No recibe datos | 200: todos los reportes |
 
-`requests.http` contiene peticiones listas para REST Client o para trasladar a Postman/Bruno. Ejemplo:
+Las peticiones de ejemplo están en `requests.http`.
 
 ```bash
 curl -i http://127.0.0.1:3000/reports \
   -H 'Content-Type: application/json' \
-  -d '{"address":"Av. Reforma 120, frente al parque","description":"Sale agua de la banqueta.","severity":"high","reporterPhone":"5551234567"}'
+  -d '{"address":"Av. Reforma 120","description":"Sale agua de la banqueta.","severity":"high","reporterPhone":"5551234567"}'
 
 curl http://127.0.0.1:3000/reports
 ```
 
-Respuesta de creación (ejemplo ilustrativo):
+El POST devuelve directamente los campos del reporte: `id`, `address`, `description`, `severity`, `reporterPhone`, `isResolved` y `createdAt`.
 
-```json
-{
-  "report": {
-    "id": 1,
-    "address": "Av. Reforma 120, frente al parque",
-    "description": "Sale agua de la banqueta.",
-    "severity": "high",
-    "reporterPhone": "5551234567",
-    "isResolved": false,
-    "createdAt": "2026-09-08T02:00:00.000Z"
-  },
-  "notification": { "sent": true }
-}
-```
+## Cómo está organizado
 
-El controller espera a que se guarde el reporte y después llama a `EmailService.sendEmail(to, subject, template)` con el HTML generado por `generateReportTemplate(dto)`. La plantilla contiene dirección, descripción, severidad y teléfono; escapa los datos ciudadanos para impedir inyección de HTML.
+- **Module:** conecta las clases de cada módulo.
+- **Controller:** recibe la petición y el DTO.
+- **Service:** realiza la operación solicitada.
+- **Repository:** consulta o guarda datos usando TypeORM.
 
-Si SMTP falla, la API conserva el reporte, responde 201 con `notification.sent=false` y un mensaje explícito, y registra el ID para seguimiento. `sent=true` significa que SMTP aceptó el correo, no una garantía de lectura o entrega final. No hay reintento automático; no debe repetirse el POST para reenviar un aviso.
+En reportes, el recorrido es `ReportsController → ReportsService → ReportsRepository`. En autenticación es `AuthController → AuthService → UsersService → UsersRepository`.
 
-## Arquitectura
+`ReportsController.create()` tiene tres pasos: guardar el reporte, enviar el correo con la plantilla y devolver el reporte. `EmailService.sendEmail(to, subject, template)` usa Nodemailer. La plantilla `src/reports/templates/report.template.ts` es una tabla HTML con dirección, descripción, severidad y teléfono.
 
-```text
-src/
-  config/       envs.ts y ValidationPipe compartido
-  database/     DataSource y migración inicial reversible
-  auth/         módulo → controller → service → UsersService
-  users/        módulo → service → repository → entidad User
-  reports/      módulo → controller → service → repository → entidad Report
-                dto/ y templates/report.template.ts
-  email/        módulo y servicio Nodemailer
-```
+`AuthService.register()` hashea la contraseña con bcryptjs. `login()` busca al usuario y compara la contraseña; si no coincide, lanza `BadRequestException('Correo o contraseña incorrectos')`. Nunca se devuelve la contraseña. Se comprueba el límite técnico de 72 bytes de bcrypt para evitar que se recorte silenciosamente; no se impone una longitud mínima adicional.
 
-Los controllers no acceden directamente a TypeORM. Auth llega al repositorio a través del servicio de usuarios; Users no necesita controller porque los endpoints de usuario solicitados están en Auth. GET no tiene datos de entrada, por lo que no necesita un DTO vacío.
+Solo existen los cuatro endpoints del enunciado. El login comprueba credenciales y devuelve el usuario; no emite tokens. `isNotificationEnabled` se guarda en el usuario y vale `true` si se omite. El aviso se envía al correo institucional definido en `MAINTENANCE_EMAIL`.
 
-`WATER_REPORT` tiene ID serial, dirección, descripción, severidad restringida a `low | medium | high`, teléfono, `isResolved=false` y `createdAt` tipo timestamp generado por PostgreSQL. `SYSTEM_USER` tiene ID serial, nombre, correo único, contraseña bcrypt y `isNotificationEnabled=true` por defecto. Los correos se normalizan a minúsculas antes de guardarse.
+Si falla SMTP, la petición devuelve error 500 y el reporte ya guardado permanece en la base de datos. No hay un estado extra de notificación ni un mecanismo de reintentos.
 
-Las contraseñas se hashean con bcrypt y costo 12, nunca se devuelven en respuestas y requieren al menos 8 caracteres y como máximo 72 bytes UTF-8. Las credenciales incorrectas lanzan `BadRequestException('Correo o contraseña incorrectos')`. Correo repetido: 409. Datos inválidos, campos inesperados o campos de reporte administrados por el servidor: 400.
+## Base de datos y migraciones
 
-El alcance del examen incluye comprobar credenciales; este login no emite JWT ni crea una sesión. Los endpoints de reportes son públicos. `isNotificationEnabled` se almacena como preferencia del usuario; la notificación de mantenimiento se envía al destinatario institucional `MAINTENANCE_EMAIL`.
+Las tablas son `WATER_REPORT` y `SYSTEM_USER`, con los campos indicados en el examen. `isResolved` inicia en `false`; `createdAt` se genera al guardar. La severidad acepta únicamente `low`, `medium` o `high`.
 
-## Migraciones
-
-`synchronize: false` y `migrationsRun: false` están definidos explícitamente. La base se prepara antes de arrancar la API.
+`synchronize: false` está configurado en `src/database/data-source.ts`. Las tablas se crean con migraciones:
 
 ```bash
 npm run migration:run
-# Generar una migración después de modificar entidades:
-npm run migration:generate -- src/database/migrations/NombreCambio
-# Revertir la última migración (la inicial elimina ambas tablas y sus datos):
+# Revertir la última migración; la inicial elimina las dos tablas y sus datos:
 npm run migration:revert
-# Ejecutar migraciones desde JavaScript compilado:
-npm run build
-npm run migration:run:prod
 ```
 
-Referencias: [migraciones TypeORM](https://typeorm.io/docs/migrations/why/) y [opciones del DataSource](https://typeorm.io/docs/data-source/data-source-options/).
-
-## Pruebas de integración
+## Verificación y entrega
 
 ```bash
 npm test
 ```
 
-Se necesita PostgreSQL disponible con los valores de `.env` y un usuario que pueda crear bases de datos. Las pruebas crean una base temporal independiente, ejecutan y revierten migraciones, levantan Nest y un receptor SMTP local en puertos libres, y eliminan la base temporal al terminar. No usan ni borran las tablas de `DB_DATABASE`, ni envían correo al destinatario configurado para producción.
+Las pruebas necesitan PostgreSQL con los datos de `.env` y un usuario con permiso para crear bases. Crean una base temporal independiente y un receptor SMTP local; ambos se cierran al terminar. No modifican las tablas de la base de la aplicación.
 
-Se comprueban registro, bcrypt, correo duplicado, login correcto e incorrecto, booleanos, límite de contraseña en bytes, persistencia, orden de listado, HTML escapado, destinatario del correo, DTOs, restricción SQL y fallo SMTP. También se comprueba que la migración y las entidades no tengan diferencias de esquema.
+`docs/VALIDACION.md` relaciona cada requisito con su implementación y las verificaciones realizadas. El video `demostracion-api.mp4`, entregado junto al repositorio, muestra peticiones reales de esta versión y el correo recibido localmente, con datos ficticios.
 
-## Entregables
-
-Se proporciona un repositorio Git local con el código y su historial, y un video MP4 separado con peticiones reales a esta API, consultas a PostgreSQL y el correo capturado por SMTP local. `docs/VIDEO.md` describe la demostración.
-
-Para publicar el repositorio en una cuenta propia después de crear un repositorio remoto vacío:
+El repositorio tiene historial Git local. Para publicarlo, cree un repositorio vacío en su cuenta y ejecute:
 
 ```bash
 git remote add origin https://github.com/TU_USUARIO/water-reports-api.git
 git push -u origin main
 ```
-
-No se incluye un remoto configurado. Las direcciones, nombres, teléfonos y contraseñas de demostración son datos ficticios.

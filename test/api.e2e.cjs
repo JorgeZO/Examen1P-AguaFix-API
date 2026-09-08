@@ -65,8 +65,8 @@ test('API con PostgreSQL real, migraciones y SMTP local', async t => {
   await t.test('GET /reports inicia vacío', async () => {
     assert.deepEqual(await request('GET', '/reports'), { status: 200, body: [] });
   });
-  await t.test('registro normaliza correo, hashea con bcrypt y no expone password', async () => {
-    const res = await request('POST', '/auth/register', { ...account, email: ' ANA@EXAMPLE.TEST ' });
+  await t.test('registro hashea con bcrypt y no expone password', async () => {
+    const res = await request('POST', '/auth/register', account);
     assert.equal(res.status, 201); assert.equal(res.body.email, account.email);
     assert.equal(res.body.isNotificationEnabled, true); assert.equal(res.body.password, undefined);
     const [stored] = await dataSource.query('SELECT * FROM "SYSTEM_USER"');
@@ -79,7 +79,7 @@ test('API con PostgreSQL real, migraciones y SMTP local', async t => {
   });
   await t.test('login válido devuelve 200 sin password', async () => {
     const res = await request('POST', '/auth/login', { email: account.email, password: account.password });
-    assert.equal(res.status, 200); assert.equal(res.body.user.password, undefined);
+    assert.equal(res.status, 200); assert.equal(res.body.password, undefined);
   });
   await t.test('credenciales incorrectas y usuario inexistente devuelven 400 claro', async () => {
     for (const email of [account.email, 'nadie@example.test']) {
@@ -88,9 +88,9 @@ test('API con PostgreSQL real, migraciones y SMTP local', async t => {
     }
   });
   await t.test('validación de usuarios y límite bcrypt en bytes', async () => {
-    for (const patch of [{ email: 'invalido' }, { password: 'corta' },
+    for (const patch of [{ email: 'invalido' }, { password: '' },
       { isNotificationEnabled: 'false' }, { isNotificationEnabled: null },
-      { name: '   ' }, { password: '🔑'.repeat(20) }]) {
+      { name: '' }, { password: '🔑'.repeat(20) }]) {
       assert.equal((await request('POST', '/auth/register', { ...account, ...patch })).status, 400);
     }
   });
@@ -100,9 +100,9 @@ test('API con PostgreSQL real, migraciones y SMTP local', async t => {
   });
   await t.test('POST persiste y envía SMTP con HTML escapado y los cuatro datos', async () => {
     const res = await request('POST', '/reports', report);
-    assert.equal(res.status, 201); assert.equal(res.body.notification.sent, true);
-    assert.equal(res.body.report.isResolved, false); assert.ok(res.body.report.id);
-    assert.ok(Date.parse(res.body.report.createdAt)); assert.equal(messages.length, 1);
+    assert.equal(res.status, 201); assert.equal(res.body.notification, undefined);
+    assert.equal(res.body.isResolved, false); assert.ok(res.body.id);
+    assert.ok(Date.parse(res.body.createdAt)); assert.equal(messages.length, 1);
     assert.equal(messages[0].to.value[0].address, 'cuadrilla@municipio.test');
     for (const value of [report.address, report.severity, report.reporterPhone, '&lt;script&gt;']) {
       assert.ok(messages[0].html.includes(value));
@@ -111,8 +111,8 @@ test('API con PostgreSQL real, migraciones y SMTP local', async t => {
     assert.equal((await dataSource.query('SELECT * FROM "WATER_REPORT"')).length, 1);
   });
   await t.test('DTO rechaza datos inválidos y campos controlados por servidor sin guardar ni enviar', async () => {
-    for (const patch of [{ severity: 'critical' }, { address: ' ' }, { description: '' },
-      { reporterPhone: 'abcdefg' }, { reporterPhone: '-------' }, { isResolved: true },
+    for (const patch of [{ severity: 'critical' }, { address: '' }, { description: '' },
+      { reporterPhone: '' }, { reporterPhone: 12345 }, { isResolved: true },
       { id: 99 }, { createdAt: '2020-01-01' }]) {
       assert.equal((await request('POST', '/reports', { ...report, ...patch })).status, 400);
     }
@@ -123,13 +123,31 @@ test('API con PostgreSQL real, migraciones y SMTP local', async t => {
   await t.test('restricción de severidad también existe en PostgreSQL', async () => {
     await assert.rejects(dataSource.query(`UPDATE "WATER_REPORT" SET severity = 'urgent'`), { code: '23514' });
   });
-  await t.test('fallo SMTP conserva el reporte y comunica notification.sent=false', async () => {
+  await t.test('low y medium también se guardan; GET lista todos los reportes', async () => {
+    for (const severity of ['low', 'medium']) {
+      const res = await request('POST', '/reports', { ...report, severity });
+      assert.equal(res.status, 201);
+      assert.equal(res.body.severity, severity);
+    }
+    const res = await request('GET', '/reports');
+    const stored = await dataSource.query('SELECT * FROM "WATER_REPORT"');
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, JSON.parse(JSON.stringify(stored)));
+    assert.equal(messages.length, 3);
+  });
+  await t.test('no se impone longitud mínima de contraseña', async () => {
+    const res = await request('POST', '/auth/register', { ...account, email: 'simple@example.test', password: 'a' });
+    assert.equal(res.status, 201);
+    const login = await request('POST', '/auth/login', { email: 'simple@example.test', password: 'a' });
+    assert.equal(login.status, 200);
+  });
+  await t.test('fallo SMTP devuelve 500 y el reporte ya guardado permanece', async () => {
     rejectMail = true;
     const res = await request('POST', '/reports', { ...report, severity: 'low' });
-    assert.equal(res.status, 201); assert.equal(res.body.notification.sent, false);
-    assert.ok(res.body.report.id); assert.equal(messages.length, 1);
+    assert.equal(res.status, 500);
+    assert.equal(messages.length, 3);
     const list = await request('GET', '/reports');
-    assert.equal(list.status, 200); assert.equal(list.body.length, 2);
-    assert.equal(list.body[0].id, res.body.report.id);
+    assert.equal(list.status, 200); assert.equal(list.body.length, 4);
+    assert.equal(list.body.filter(item => item.severity === 'low').length, 2);
   });
 });

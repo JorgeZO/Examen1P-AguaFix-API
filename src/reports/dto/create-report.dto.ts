@@ -1,21 +1,22 @@
-import { Transform } from 'class-transformer';
-import { IsEnum, IsNotEmpty, IsString, Matches, MaxLength } from 'class-validator';
-import { Severity } from '../entities/report.entity';
-
-const trim = ({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value;
+import { IsIn, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 export class CreateReportDto {
-  @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(255)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
   address!: string;
 
-  @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(5000)
+  @IsString()
+  @IsNotEmpty()
   description!: string;
 
-  @IsEnum(Severity, { message: 'severity debe ser low, medium o high' })
-  severity!: Severity;
+  @IsIn(['low', 'medium', 'high'], {
+    message: 'severity debe ser low, medium o high',
+  })
+  severity!: string;
 
-  @Transform(trim) @IsString() @MaxLength(25)
-  @Matches(/^\+?[0-9 ()-]{7,25}$/, { message: 'reporterPhone debe ser un teléfono válido' })
-  @Matches(/^(?:\D*\d){7,15}\D*$/, { message: 'reporterPhone debe contener de 7 a 15 dígitos' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(25)
   reporterPhone!: string;
 }
