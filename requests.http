@@ -1,0 +1,55 @@
+@baseUrl = http://127.0.0.1:3000
+
+### Registrar usuario (201)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Ana López",
+  "email": "ana@example.test",
+  "password": "AguaSegura2026!",
+  "isNotificationEnabled": true
+}
+
+### Iniciar sesión (200)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "ana@example.test",
+  "password": "AguaSegura2026!"
+}
+
+### Credenciales inválidas (400)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "ana@example.test",
+  "password": "Incorrecta123!"
+}
+
+### Crear reporte y enviar correo (201)
+POST {{baseUrl}}/reports
+Content-Type: application/json
+
+{
+  "address": "Av. Reforma 120, frente al parque",
+  "description": "Sale agua de la banqueta desde esta mañana.",
+  "severity": "high",
+  "reporterPhone": "+52 555 123 4567"
+}
+
+### Consultar reportes (200)
+GET {{baseUrl}}/reports
+
+### Severidad inválida (400)
+POST {{baseUrl}}/reports
+Content-Type: application/json
+
+{
+  "address": "Calle Juárez 42",
+  "description": "Fuga junto al poste de luz.",
+  "severity": "critical",
+  "reporterPhone": "5551234567"
+}
