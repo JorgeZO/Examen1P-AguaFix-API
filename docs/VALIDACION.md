@@ -1,35 +1,43 @@
-# Revisión contra el enunciado
+# Verificación de fotos, Docker y CI
 
-## Requisitos
+Validación realizada el 15 de octubre de 2026 sobre el repositorio del primer parcial.
 
-| Requisito | Dónde se cumple | Comprobación |
-|---|---|---|
-| NestJS 11 y TypeScript | `package.json` y archivos `src/*.ts` | Compilación correcta; NestJS 11.2.3 instalado |
-| PostgreSQL y TypeORM | `src/database/data-source.ts` | Pruebas contra PostgreSQL 16.15 real |
-| Migraciones y synchronize false | `src/database/migrations/` y DataSource | Aplicar, revertir, reaplicar y comparar esquema con entidades |
-| dotenv + env-var | `src/config/envs.ts` | Inicio de la aplicación usando estas variables |
-| Contraseñas bcryptjs | `src/auth/auth.service.ts` | Hash almacenado y comparación de contraseña |
-| Nodemailer | `src/email/email.service.ts` | Correo recibido por un servidor SMTP local |
-| Módulo, controller, service, repository | `src/auth/`, `src/users/`, `src/reports/` | Revisión del recorrido de cada endpoint |
-| DTOs | `CreateUserDto`, `LoginDto`, `CreateReportDto` | Entradas correctas aceptadas; inválidas rechazadas |
-| WATER_REPORT con sus siete campos | `report.entity.ts` y migración | ID serial, tipos, defaults y persistencia verificados |
-| SYSTEM_USER con sus cinco campos | `user.entity.ts` y migración | Registro, hash y booleano verificados |
-| POST /reports y GET /reports | `reports.controller.ts` | Creación con correo y consulta de todos los reportes |
-| POST /auth/register y POST /auth/login | `auth.controller.ts` | Registro, acceso válido e inválido |
-| BadRequestException en login inválido | `auth.service.ts` | HTTP 400: «Correo o contraseña incorrectos» |
-| sendEmail(to, subject, template) | `email.service.ts` | Destinatario, asunto y cuerpo enviados por SMTP |
-| generateReportTemplate(dto): string | `reports/templates/report.template.ts` | Tabla HTML con dirección, descripción, severidad y teléfono |
-| Guardar y enviar correo desde el controller | `ReportsController.create()` | Primero persiste, después espera el envío |
-| Git y video | Historial `.git` y MP4 adjunto | Video de la versión simplificada |
+## Resultados locales
 
-GET no recibe body ni parámetros; no se añade un DTO vacío. La aplicación tiene exactamente los cuatro endpoints pedidos. Los archivos de pruebas, Compose y la documentación sirven para ejecutarla y verificarla.
+- `npm test`: **19 pruebas aprobadas, cero fallos** (18 escenarios y el grupo principal).
+- Compilación TypeScript correcta con Node.js 22.
+- PostgreSQL 16 real; base temporal eliminada al terminar las pruebas.
+- Migración inicial sin cambios; migración de fotos aplicada, revertida y reaplicada. Se comprobó que conserva un reporte anterior con URL nulas y que el esquema coincide con las entidades. `synchronize` sigue en `false`.
+- Registro, hash bcrypt, login, errores de credenciales, duplicados y preferencias de notificación comprobados.
+- POST multipart con imagen real de prueba: SDK S3 ejecuta PUT, transmite los mismos bytes y el Content-Type detectado, guarda URL pública y envía correo con `<img>` y los cuatro datos escapados.
+- Foto ausente, vacía, falsa, demasiado grande o con nombre de campo incorrecto: rechazo sin subir, guardar ni enviar correo.
+- Campos del servidor enviados por el ciudadano: rechazo. Se verificaron `photoUrl`, `repairPhotoUrl`, `isResolved`, ID y fecha.
+- PATCH de cierre: requiere foto, comprueba ID, sube a `repairs/`, guarda URL y cambia `isResolved`; un segundo cierre falla sin otra subida.
+- GET devuelve ambas URL y su estado persistido.
+- Fallos S3: no crean ni cierran reportes. Fallo SMTP: conserva el reporte guardado, como en el primer parcial.
+- `npm audit`: cero vulnerabilidades después de actualizar dependencias compatibles y Nodemailer. Las pruebas SMTP verifican el comportamiento tras esa actualización.
 
-## Resultado
+## Docker ejecutado
 
-14 escenarios de integración aprobados, cero fallos. Node informa 15 pruebas al contar también el grupo principal. Incluyen las tres severidades, los datos inválidos, el listado, las credenciales incorrectas, el hash, el correo y el comportamiento cuando SMTP falla.
+Se construyó la imagen con el Dockerfile de `node:22-alpine` y se ejecutó el Compose de entrega con una etiqueta local de esa imagen para verificarla. No se descargó una imagen publicada propia en Docker Hub.
 
-Se quitaron el objeto adicional `notification`, las expresiones regulares de teléfono, la longitud mínima de contraseña, la normalización automática de entradas, el orden especial del listado, QueryBuilder, la generación de filas HTML con map y la configuración avanzada del transporter. Los pasos principales están escritos de forma explícita.
+Se comprobó en contenedores:
 
-Se conservan la validación de tipos, el límite técnico de bcrypt, la exclusión de contraseñas en respuestas y el escape de HTML. Son comprobaciones del manejo de los datos, no endpoints o funciones adicionales.
+1. PostgreSQL saludable → contenedor de migraciones termina correctamente → API inicia.
+2. GET vacío, POST multipart con foto, correo HTML recibido, cierre con foto y GET con ambas URL.
+3. S3 recibe los bytes originales de las dos imágenes mediante el SDK real.
+4. La imagen final no contiene `.env`, `.env.example`, `compose.yaml`, `compose.dev.yaml` ni `.git`.
+5. La API se ejecuta como usuario `node`, UID 1000.
+6. Se eliminaron los contenedores y el volumen temporal utilizados para verificar.
 
-La prueba de correo usa un receptor SMTP local y no demuestra entrega a una cuenta externa. Docker Compose se incluye como ayuda de arranque; se verificó PostgreSQL instalado localmente. No se publicó en GitHub ni en la nube.
+Los servidores SMTP y HTTP del protocolo S3 eran dobles locales. Estas verificaciones no acreditan entrega a un buzón externo, permisos públicos de un bucket AWS ni publicación en Docker Hub.
+
+## CI y publicación pendientes de la cuenta
+
+El workflow se dispara con push a `main`, hace login con `secrets.DOCKER_USER` y `secrets.DOCKER_PASSWORD` y construye/publica `latest` para AMD64 y ARM64. Las referencias de las Actions se fijaron a sus commits oficiales.
+
+Al revisar el repositorio, los Secrets de Docker Hub todavía no estaban configurados. Falta agregarlos, crear el repositorio público de Docker Hub y ejecutar el workflow en `main`. La ejecución verde y la URL final de la imagen deben comprobarse después de esos pasos.
+
+También se requiere configurar el bucket/identidad AWS y el proveedor SMTP reales en `.env`. No se incorporaron credenciales reales al código, al Dockerfile, al workflow ni al repositorio.
+
+El video queda a cargo del alumno; `docs/VIDEO.md` describe la secuencia exigida y `postman/AguaFix.postman_collection.json` contiene las peticiones.

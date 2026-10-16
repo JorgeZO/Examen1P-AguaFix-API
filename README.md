@@ -1,89 +1,113 @@
-# API de reportes de fugas de agua
+# AguaFix: fotos en S3 y publicación en Docker Hub
 
-Proyecto del primer parcial con los cuatro endpoints solicitados, NestJS 11, TypeScript y PostgreSQL.
+API del mismo repositorio del primer parcial, con NestJS 11, PostgreSQL y TypeORM. Conserva registro, login, bcrypt, validación y correo. Agrega fotos obligatorias al crear y cerrar reportes.
 
-## Cómo ejecutarlo
+## Preparar el entorno
 
-Requisitos: Node.js 20 o superior, npm y Docker Desktop iniciado.
+Requisitos: Node.js 22, npm y PostgreSQL 16; Docker Desktop para ejecutar contenedores.
 
 ```bash
 npm ci
 cp .env.example .env
-docker compose up -d --wait
-npm run migration:run
-npm run build
-npm start
 ```
 
-La API escucha en `http://127.0.0.1:3000`. El buzón de correos de prueba se abre en `http://127.0.0.1:8025`.
+Complete `.env` con los datos de su base, correo y bucket. `DB_USERNAME`, `DB_PASSWORD`, `AWS_REGION` y `AWS_S3_BUCKET` se dejan vacíos deliberadamente. Las credenciales AWS se cargan mediante `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y, si corresponde, `AWS_SESSION_TOKEN`; también se puede usar un rol IAM sin esas variables. Nunca agregue `.env` a Git.
 
-Compose solo prepara PostgreSQL y Mailpit, el receptor SMTP local. Si ya tiene PostgreSQL y SMTP, configure sus datos en `.env` y omita el comando de Compose. Para ejecutar TypeScript directamente: `npm run start:dev`.
+Para desarrollo con PostgreSQL y Mailpit en Docker:
 
-Las variables de entorno se leen con `dotenv` y `env-var` en `src/config/envs.ts`. Para enviar correos externos, configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` y `MAINTENANCE_EMAIL`. Para Mailpit, el usuario y la contraseña SMTP se dejan vacíos.
+```bash
+docker compose -f compose.dev.yaml up -d --wait
+npm run migration:run
+npm run start:dev
+```
+
+Use `DB_HOST=127.0.0.1`, `SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, `SMTP_SECURE=false` y deje vacíos `SMTP_USER` y `SMTP_PASSWORD` para Mailpit. Su buzón está en http://127.0.0.1:8025. Si ya tiene PostgreSQL y SMTP, omita Compose y use sus datos. Para recibir el correo en una cuenta externa, configure un proveedor SMTP real y `MAINTENANCE_EMAIL`.
 
 ## Endpoints
 
-| Método | Ruta | DTO de entrada | Respuesta |
+| Método | Ruta | Entrada | Resultado |
 |---|---|---|---|
-| POST | `/auth/register` | `CreateUserDto` | 201: usuario sin contraseña |
-| POST | `/auth/login` | `LoginDto` | 200: usuario sin contraseña; 400: credenciales incorrectas |
-| POST | `/reports` | `CreateReportDto` | 201: reporte guardado, después de enviar el correo |
-| GET | `/reports` | No recibe datos | 200: todos los reportes |
+| POST | `/auth/register` | JSON de CreateUserDto | 201, usuario sin contraseña |
+| POST | `/auth/login` | JSON de LoginDto | 200; credenciales incorrectas: 400 |
+| POST | `/reports` | multipart: address, description, severity, reporterPhone, photo | 201, foto en `reports/`, reporte guardado y correo enviado |
+| GET | `/reports` | Sin body | 200, reportes con photoUrl y repairPhotoUrl |
+| PATCH | `/reports/:id/resolve` | multipart: photo | 200, foto en `repairs/`, repairPhotoUrl e isResolved=true |
 
-Las peticiones de ejemplo están en `requests.http`.
+`severity` acepta `low`, `medium` y `high`. En los dos endpoints de fotos, el campo se llama **photo** y es obligatorio. Se aceptan JPEG, PNG y WebP de hasta 5 MiB. Se comprueba la firma del archivo; el tipo y la extensión almacenados corresponden al contenido. Archivo ausente o inválido: 400. Archivo demasiado grande: 413. Cierre de reporte inexistente: 404; cierre repetido: 400.
+
+En Postman importe `postman/AguaFix.postman_collection.json`. En Body → form-data seleccione una imagen local en el campo `photo`, de tipo File. Deje que Postman genere el Content-Type y su boundary. La petición de creación guarda automáticamente `reportId` para el cierre. No escriba `photoUrl`, `repairPhotoUrl` ni `isResolved` en el body.
 
 ```bash
 curl -i http://127.0.0.1:3000/reports \
-  -H 'Content-Type: application/json' \
-  -d '{"address":"Av. Reforma 120","description":"Sale agua de la banqueta.","severity":"high","reporterPhone":"5551234567"}'
+  -F 'address=Av. Reforma 120' \
+  -F 'description=Sale agua de la banqueta' \
+  -F 'severity=high' \
+  -F 'reporterPhone=5551234567' \
+  -F 'photo=@/ruta/a/fuga.jpg'
 
 curl http://127.0.0.1:3000/reports
+
+# Reemplace 1 por el ID devuelto al crear el reporte.
+curl -i -X PATCH http://127.0.0.1:3000/reports/1/resolve \
+  -F 'photo=@/ruta/a/reparacion.jpg'
 ```
 
-El POST devuelve directamente los campos del reporte: `id`, `address`, `description`, `severity`, `reporterPhone`, `isResolved` y `createdAt`.
+## S3 y correo con foto
 
-## Cómo está organizado
+`StorageModule` exporta `StorageService`. `uploadFile(file, folder): Promise<string>` utiliza `@aws-sdk/client-s3`, nombres UUID y `PutObjectCommand`; regresa la URL pública HTTPS del objeto. Las credenciales se resuelven con la cadena estándar del SDK. No se envían ACL en la subida.
 
-- **Module:** conecta las clases de cada módulo.
-- **Controller:** recibe la petición y el DTO.
-- **Service:** realiza la operación solicitada.
-- **Repository:** consulta o guarda datos usando TypeORM.
+1. Cree un bucket S3 y anote su nombre y región en `.env`.
+2. Conceda a la identidad de la API `s3:PutObject` únicamente sobre `reports/*` y `repairs/*`. El ejemplo está en `docs/s3-upload-policy.json`; reemplace `NOMBRE_DEL_BUCKET`.
+3. Para que la URL sea pública y el correo pueda mostrarla, aplique `docs/s3-public-read-policy.json`, sustituyendo el mismo nombre. Permite únicamente `s3:GetObject` anónimo sobre esos dos prefijos. La configuración de bloqueo público del bucket y de la cuenta debe permitir esa política. No habilite escritura pública ni listado público.
+4. Abra una URL devuelta en una ventana sin sesión de AWS para comprobar su lectura. Un `AccessDenied` indica que la política o el bloqueo público aún impiden verla.
 
-En reportes, el recorrido es `ReportsController → ReportsService → ReportsRepository`. En autenticación es `AuthController → AuthService → UsersService → UsersRepository`.
+`generateReportTemplate(dto, photoUrl)` incluye dirección, descripción, severidad, teléfono y `<img src="...">`, con datos escapados. Algunos lectores de correo requieren habilitar imágenes externas.
 
-`ReportsController.create()` tiene tres pasos: guardar el reporte, enviar el correo con la plantilla y devolver el reporte. `EmailService.sendEmail(to, subject, template)` usa Nodemailer. La plantilla `src/reports/templates/report.template.ts` es una tabla HTML con dirección, descripción, severidad y teléfono.
+## Migración sin perder el primer parcial
 
-`AuthService.register()` hashea la contraseña con bcryptjs. `login()` busca al usuario y compara la contraseña; si no coincide, lanza `BadRequestException('Correo o contraseña incorrectos')`. Nunca se devuelve la contraseña. Se comprueba el límite técnico de 72 bytes de bcrypt para evitar que se recorte silenciosamente; no se impone una longitud mínima adicional.
+`synchronize: false` continúa en `src/database/data-source.ts`. La migración inicial permanece intacta. `1792022400000-AddReportPhotos` agrega `photoUrl` y `repairPhotoUrl` a `WATER_REPORT`.
 
-Solo existen los cuatro endpoints del enunciado. El login comprueba credenciales y devuelve el usuario; no emite tokens. `isNotificationEnabled` se guarda en el usuario y vale `true` si se omite. El aviso se envía al correo institucional definido en `MAINTENANCE_EMAIL`.
-
-Si falla SMTP, la petición devuelve error 500 y el reporte ya guardado permanece en la base de datos. No hay un estado extra de notificación ni un mecanismo de reintentos.
-
-## Base de datos y migraciones
-
-Las tablas son `WATER_REPORT` y `SYSTEM_USER`, con los campos indicados en el examen. `isResolved` inicia en `false`; `createdAt` se genera al guardar. La severidad acepta únicamente `low`, `medium` o `high`.
-
-`synchronize: false` está configurado en `src/database/data-source.ts`. Las tablas se crean con migraciones:
+Las columnas aceptan `null` para conservar reportes históricos que no tenían foto. Todo reporte nuevo creado por la API exige `photo`; `repairPhotoUrl` permanece en `null` hasta cerrarlo con una imagen.
 
 ```bash
 npm run migration:run
-# Revertir la última migración; la inicial elimina las dos tablas y sus datos:
+# Revertir la última migración elimina las columnas de fotos y sus URL:
 npm run migration:revert
 ```
 
-## Verificación y entrega
+Se mantiene la secuencia guardar → enviar correo → responder. Si SMTP falla, se responde 500 y el reporte con su foto permanece guardado, como antes. Si falla S3, no se crea ni se cierra el reporte. No hay transacción distribuida entre S3 y PostgreSQL: si falla la base después de subir, el objeto puede quedar sin reporte asociado.
+
+## Docker y GitHub Actions
+
+Cree un repositorio **público** llamado `aguafix-api` en Docker Hub. En GitHub → Settings → Secrets and variables → Actions agregue:
+
+- `DOCKER_USER`: su usuario de Docker Hub.
+- `DOCKER_PASSWORD`: un token de Docker Hub con permiso de escritura.
+
+El workflow `.github/workflows/docker-publish.yaml` se ejecuta con cada push a `main` y admite ejecución manual. Inicia sesión con esos Secrets, construye para Linux AMD64 y ARM64 y publica `DOCKER_USER/aguafix-api:latest`. AWS, SMTP y la base de datos solo se configuran al ejecutar la API; no se usan durante la construcción.
+
+El Dockerfile usa `node:22-alpine`, compila TypeScript y ejecuta `node dist/main` como usuario `node`. Copia únicamente dependencias, `dist` y `package.json` a la etapa final. `.dockerignore` excluye `.env`, todos los Compose, `node_modules`, `dist` y `.git`.
+
+Cuando el workflow termine en verde, complete `DOCKER_USER` en `.env`. Para ejecutar la imagen publicada:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+`compose.yaml` descarga la imagen desde Docker Hub, inicia PostgreSQL, aplica las migraciones con un contenedor temporal y arranca la API en http://127.0.0.1:3000. No construye una imagen local. Use el hostname de su proveedor SMTP: `127.0.0.1` dentro del contenedor apunta al propio contenedor. Las variables del archivo `.env` se inyectan al ejecutar; el archivo no se copia a la imagen.
+
+## Comprobación y entrega
 
 ```bash
 npm test
 ```
 
-Las pruebas necesitan PostgreSQL con los datos de `.env` y un usuario con permiso para crear bases. Crean una base temporal independiente y un receptor SMTP local; ambos se cierran al terminar. No modifican las tablas de la base de la aplicación.
+Las pruebas requieren una instancia PostgreSQL accesible y un usuario que pueda crear bases. Usan `DB_*` si se configuraron; en una instalación local también pueden usar el usuario del sistema. Crean y eliminan una base temporal. SMTP y S3 usan servidores HTTP/SMTP locales de prueba: se ejecuta el SDK S3 real, sin acceder a una cuenta AWS ni entregar correo externo.
 
-`docs/VALIDACION.md` relaciona cada requisito con su implementación y las verificaciones realizadas. El video `demostracion-api.mp4`, entregado junto al repositorio, muestra peticiones reales de esta versión y el correo recibido localmente, con datos ficticios.
+La validación realizada está en `docs/VALIDACION.md`; `docs/VIDEO.md` contiene la secuencia para que grabe su video. La colección Postman incluye las peticiones necesarias.
 
-El repositorio tiene historial Git local. Para publicarlo, cree un repositorio vacío en su cuenta y ejecute:
+- Repositorio: https://github.com/JorgeZO/Examen1P-AguaFix-API
+- Imagen, después de publicar: `https://hub.docker.com/r/<DOCKER_USER>/aguafix-api`.
 
-```bash
-git remote add origin https://github.com/TU_USUARIO/water-reports-api.git
-git push -u origin main
-```
+La URL de Docker Hub solo es un entregable válido cuando el repositorio existe y el workflow ha publicado `latest`.

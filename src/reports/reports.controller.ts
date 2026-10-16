@@ -1,6 +1,10 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import {
+  Body, Controller, Get, Param, ParseIntPipe, Patch, Post,
+  UploadedFile, UseInterceptors,
+} from '@nestjs/common';
 import { envs } from '../config/envs';
 import { EmailService } from '../email/email.service';
+import { PhotoInterceptor, photoValidationPipe } from '../storage/photo-upload';
 import { CreateReportDto } from './dto/create-report.dto';
 import { ReportsService } from './reports.service';
 import { generateReportTemplate } from './templates/report.template';
@@ -13,12 +17,16 @@ export class ReportsController {
   ) {}
 
   @Post()
-  async create(@Body() dto: CreateReportDto) {
-    // Primero se guarda el reporte en PostgreSQL.
-    const report = await this.reportsService.create(dto);
+  @UseInterceptors(PhotoInterceptor())
+  async create(
+    @Body() dto: CreateReportDto,
+    @UploadedFile(photoValidationPipe()) photo: Express.Multer.File,
+  ) {
+    // Primero se sube la foto y se guarda el reporte en PostgreSQL.
+    const report = await this.reportsService.create(dto, photo);
 
     // Después se envía el correo a la cuadrilla.
-    const template = generateReportTemplate(dto);
+    const template = generateReportTemplate(dto, report.photoUrl!);
     await this.emailService.sendEmail(
       envs.maintenanceEmail,
       'Nuevo reporte de fuga de agua',
@@ -31,5 +39,14 @@ export class ReportsController {
   @Get()
   findAll() {
     return this.reportsService.findAll();
+  }
+
+  @Patch(':id/resolve')
+  @UseInterceptors(PhotoInterceptor())
+  resolve(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile(photoValidationPipe()) photo: Express.Multer.File,
+  ) {
+    return this.reportsService.resolve(id, photo);
   }
 }

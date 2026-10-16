@@ -10,7 +10,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-export function generateReportTemplate(dto: CreateReportDto): string {
+export function generateReportTemplate(dto: CreateReportDto, photoUrl: string): string {
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -38,6 +38,9 @@ export function generateReportTemplate(dto: CreateReportDto): string {
       <td style="padding: 12px; border: 1px solid #ccc;">${escapeHtml(dto.reporterPhone)}</td>
     </tr>
   </table>
+  <h2 style="font-size: 18px;">Foto de la fuga</h2>
+  <img src="${escapeHtml(photoUrl)}" alt="Fotografía de la fuga reportada"
+    width="600" style="display: block; max-width: 100%; height: auto; border-radius: 8px;">
 </body>
 </html>`;
 }
