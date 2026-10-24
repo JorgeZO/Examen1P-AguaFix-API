@@ -1,0 +1,14 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "UploadReportPhotos",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": [
+        "arn:aws:s3:::NOMBRE_DEL_BUCKET/reports/*",
+        "arn:aws:s3:::NOMBRE_DEL_BUCKET/repairs/*"
+      ]
+    }
+  ]
+}

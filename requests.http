@@ -1,55 +1,61 @@
 @baseUrl = http://127.0.0.1:3000
+@reportId = 1
 
-### Registrar usuario (201)
+### Registrar usuario
 POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
-{
-  "name": "Ana López",
-  "email": "ana@example.test",
-  "password": "AguaSegura2026!",
-  "isNotificationEnabled": true
-}
+{"name":"Ana López","email":"ana@example.test","password":"AguaSegura2026!","isNotificationEnabled":true}
 
-### Iniciar sesión (200)
+### Login
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
-{
-  "email": "ana@example.test",
-  "password": "AguaSegura2026!"
-}
+{"email":"ana@example.test","password":"AguaSegura2026!"}
 
-### Credenciales inválidas (400)
-POST {{baseUrl}}/auth/login
-Content-Type: application/json
-
-{
-  "email": "ana@example.test",
-  "password": "Incorrecta123!"
-}
-
-### Crear reporte y enviar correo (201)
+### Crear reporte (reemplace fuga.jpg por la ruta de una foto real)
 POST {{baseUrl}}/reports
-Content-Type: application/json
+Content-Type: multipart/form-data; boundary=AguaFixBoundary
 
-{
-  "address": "Av. Reforma 120, frente al parque",
-  "description": "Sale agua de la banqueta desde esta mañana.",
-  "severity": "high",
-  "reporterPhone": "+52 555 123 4567"
-}
+--AguaFixBoundary
+Content-Disposition: form-data; name="address"
 
-### Consultar reportes (200)
+Av. Reforma 120
+--AguaFixBoundary
+Content-Disposition: form-data; name="description"
+
+Sale agua de la banqueta
+--AguaFixBoundary
+Content-Disposition: form-data; name="severity"
+
+high
+--AguaFixBoundary
+Content-Disposition: form-data; name="reporterPhone"
+
+5551234567
+--AguaFixBoundary
+Content-Disposition: form-data; name="photo"; filename="fuga.jpg"
+Content-Type: image/jpeg
+
+< ./fuga.jpg
+--AguaFixBoundary--
+
+### Consultar reportes con ambas URL
 GET {{baseUrl}}/reports
 
-### Severidad inválida (400)
+### Cerrar reporte (reemplace reparacion.jpg por la ruta de una foto real)
+PATCH {{baseUrl}}/reports/{{reportId}}/resolve
+Content-Type: multipart/form-data; boundary=AguaFixBoundary
+
+--AguaFixBoundary
+Content-Disposition: form-data; name="photo"; filename="reparacion.jpg"
+Content-Type: image/jpeg
+
+< ./reparacion.jpg
+--AguaFixBoundary--
+
+### Sin foto: 400
 POST {{baseUrl}}/reports
 Content-Type: application/json
 
-{
-  "address": "Calle Juárez 42",
-  "description": "Fuga junto al poste de luz.",
-  "severity": "critical",
-  "reporterPhone": "5551234567"
-}
+{"address":"Av. Reforma 120","description":"Fuga","severity":"high","reporterPhone":"5551234567"}

@@ -1,0 +1,163 @@
+{
+  "info": {
+    "name": "AguaFix · Fotos S3",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Seleccione archivos locales en los campos photo. Postman genera el boundary multipart. El POST guarda reportId para el cierre."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:3000"
+    },
+    {
+      "key": "reportId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Registrar usuario",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Ana López\",\n  \"email\": \"ana@example.test\",\n  \"password\": \"AguaSegura2026!\",\n  \"isNotificationEnabled\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"ana@example.test\",\n  \"password\": \"AguaSegura2026!\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Crear reporte con foto",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/reports",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "address",
+              "value": "Av. Reforma 120",
+              "type": "text"
+            },
+            {
+              "key": "description",
+              "value": "Sale agua de la banqueta",
+              "type": "text"
+            },
+            {
+              "key": "severity",
+              "value": "high",
+              "type": "text"
+            },
+            {
+              "key": "reporterPhone",
+              "value": "5551234567",
+              "type": "text"
+            },
+            {
+              "key": "photo",
+              "type": "file",
+              "src": [],
+              "description": "Seleccione una foto JPEG, PNG o WebP de hasta 5 MiB."
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Reporte creado\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) pm.collectionVariables.set(\"reportId\", pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Consultar reportes",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/reports"
+      }
+    },
+    {
+      "name": "Cerrar reporte con foto",
+      "request": {
+        "method": "PATCH",
+        "header": [],
+        "url": "{{baseUrl}}/reports/{{reportId}}/resolve",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "photo",
+              "type": "file",
+              "src": [],
+              "description": "Seleccione la foto de la reparación terminada."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Sin foto devuelve 400",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/reports",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"address\": \"Av. Reforma 120\",\n  \"description\": \"Sale agua de la banqueta\",\n  \"severity\": \"high\",\n  \"reporterPhone\": \"5551234567\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

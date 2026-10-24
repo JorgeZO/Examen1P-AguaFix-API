@@ -1,23 +1,40 @@
+x-api: &api
+  image: ${DOCKER_USER:?Define DOCKER_USER en .env}/aguafix-api:latest
+  env_file: .env
+  environment:
+    HOST: 0.0.0.0
+    PORT: 3000
+    DB_HOST: postgres
+    DB_PORT: 5432
+
 services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: water
-      POSTGRES_PASSWORD: water_local_only
-      POSTGRES_DB: water_reports
-    ports:
-      - "127.0.0.1:5432:5432"
+      POSTGRES_USER: ${DB_USERNAME:?Define DB_USERNAME en .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en .env}
+      POSTGRES_DB: ${DB_DATABASE:?Define DB_DATABASE en .env}
     volumes:
       - water_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U water -d water_reports"]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 3s
       timeout: 3s
       retries: 20
-  mailpit:
-    image: axllent/mailpit:v1.27
+  migrate:
+    <<: *api
+    command: ["node", "node_modules/typeorm/cli.js", "migration:run", "-d", "dist/database/data-source.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *api
     ports:
-      - "127.0.0.1:1025:1025"
-      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:${PORT:-3000}:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
 volumes:
   water_data:

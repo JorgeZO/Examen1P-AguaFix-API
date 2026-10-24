@@ -1,0 +1,15 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadReportPhotos",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": [
+        "arn:aws:s3:::NOMBRE_DEL_BUCKET/reports/*",
+        "arn:aws:s3:::NOMBRE_DEL_BUCKET/repairs/*"
+      ]
+    }
+  ]
+}

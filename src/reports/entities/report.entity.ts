@@ -18,6 +18,13 @@ export class Report {
   @Column({ type: 'varchar', length: 25 })
   reporterPhone!: string;
 
+  // Los reportes del primer parcial no tienen fotografía. Los nuevos la exigen.
+  @Column({ type: 'text', nullable: true })
+  photoUrl!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  repairPhotoUrl!: string | null;
+
   @Column({ default: false })
   isResolved!: boolean;
 
