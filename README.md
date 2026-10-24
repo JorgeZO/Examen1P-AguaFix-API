@@ -105,7 +105,9 @@ npm test
 
 Las pruebas requieren una instancia PostgreSQL accesible y un usuario que pueda crear bases. Usan `DB_*` si se configuraron; en una instalación local también pueden usar el usuario del sistema. Crean y eliminan una base temporal. SMTP y S3 usan servidores HTTP/SMTP locales de prueba: se ejecuta el SDK S3 real, sin acceder a una cuenta AWS ni entregar correo externo.
 
-La validación realizada está en `docs/VALIDACION.md`; `docs/VIDEO.md` contiene la secuencia para que grabe su video. La colección Postman incluye las peticiones necesarias.
+La validación realizada está en `docs/VALIDACION.md`. La guía completa de configuración, ensayo, grabación y entrega está en [`docs/PRUEBAS_Y_EVIDENCIA.md`](docs/PRUEBAS_Y_EVIDENCIA.md); `docs/VIDEO.md` resume la toma. La colección Postman incluye las peticiones necesarias.
+
+Se fija Multer 2.5.0 mediante `overrides` porque NestJS 11 fija una versión anterior; este ajuste incorpora la corrección de seguridad de cargas multipart. La compilación y las pruebas de subida se verificaron con esa versión.
 
 - Repositorio: https://github.com/JorgeZO/Examen1P-AguaFix-API
 - Imagen, después de publicar: `https://hub.docker.com/r/<DOCKER_USER>/aguafix-api`.

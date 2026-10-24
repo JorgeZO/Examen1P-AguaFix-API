@@ -1,11 +1,11 @@
 # Guía para su grabación
 
-El video lo graba el alumno. Esta guía indica la secuencia del enunciado; no es evidencia de una publicación ya realizada.
+El video lo graba el alumno. Esta guía indica la secuencia del enunciado; no es evidencia de una publicación ya realizada. La configuración y las peticiones de ensayo están explicadas paso a paso en [PRUEBAS_Y_EVIDENCIA.md](PRUEBAS_Y_EVIDENCIA.md).
 
 ## Antes de grabar
 
-1. Integre los cambios en `main` y configure `DOCKER_USER` y `DOCKER_PASSWORD` en GitHub Secrets.
-2. Cree el repositorio público `aguafix-api` en Docker Hub.
+1. Cree el repositorio público `aguafix-api` en Docker Hub y configure `DOCKER_USER` y `DOCKER_PASSWORD` en GitHub Secrets.
+2. Quite el estado de borrador del PR #1 e integre los cambios en `main`; espere que el workflow termine en verde.
 3. Complete su `.env` local con S3, PostgreSQL y un SMTP real; compruebe que las URL del bucket se puedan abrir sin sesión AWS.
 4. Importe `postman/AguaFix.postman_collection.json` y tenga una foto de fuga y otra de reparación disponibles.
 5. Cuando exista la imagen publicada, ejecute `docker compose pull` y `docker compose up -d`.
@@ -17,7 +17,7 @@ El video lo graba el alumno. Esta guía indica la secuencia del enunciado; no es
 En `main`, haga un cambio visible, por ejemplo modificar el asunto del correo en `src/reports/reports.controller.ts`. Muestre el cambio y ejecute:
 
 ```bash
-npm test
+npm run build
 git add src/reports/reports.controller.ts
 git commit -m "Ajusta asunto del aviso a la cuadrilla"
 git push origin main
