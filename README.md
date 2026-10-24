@@ -110,6 +110,7 @@ La validación realizada está en `docs/VALIDACION.md`. La guía completa de con
 Se fija Multer 2.5.0 mediante `overrides` porque NestJS 11 fija una versión anterior; este ajuste incorpora la corrección de seguridad de cargas multipart. La compilación y las pruebas de subida se verificaron con esa versión.
 
 - Repositorio: https://github.com/JorgeZO/Examen1P-AguaFix-API
-- Imagen, después de publicar: `https://hub.docker.com/r/<DOCKER_USER>/aguafix-api`.
+- Imagen pública: [jorgezo/aguafix-api](https://hub.docker.com/r/jorgezo/aguafix-api), tag `latest`.
+- Publicación inicial verificada: [GitHub Actions en verde](https://github.com/JorgeZO/Examen1P-AguaFix-API/actions/runs/40129536399).
 
-La URL de Docker Hub solo es un entregable válido cuando el repositorio existe y el workflow ha publicado `latest`.
+El 24 de octubre de 2026 se configuraron los Secrets, se integró el PR #1 y GitHub Actions publicó `latest` para AMD64 y ARM64. Se descargó esa imagen desde Docker Hub y se verificó con Compose. La configuración de S3 y correo reales sigue pendiente; la prueba de integración utiliza receptores locales para esos dos servicios.

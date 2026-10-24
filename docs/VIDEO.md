@@ -4,8 +4,8 @@ El video lo graba el alumno. Esta guía indica la secuencia del enunciado; no es
 
 ## Antes de grabar
 
-1. Cree el repositorio público `aguafix-api` en Docker Hub y configure `DOCKER_USER` y `DOCKER_PASSWORD` en GitHub Secrets.
-2. Quite el estado de borrador del PR #1 e integre los cambios en `main`; espere que el workflow termine en verde.
+1. Docker Hub y GitHub ya están preparados: `jorgezo/aguafix-api:latest`, Secrets configurados y PR #1 integrado en `main`.
+2. La publicación inicial terminó en verde. El video debe mostrar una ejecución nueva, provocada por el cambio y push que haga durante su grabación.
 3. Complete su `.env` local con S3, PostgreSQL y un SMTP real; compruebe que las URL del bucket se puedan abrir sin sesión AWS.
 4. Importe `postman/AguaFix.postman_collection.json` y tenga una foto de fuga y otra de reparación disponibles.
 5. Cuando exista la imagen publicada, ejecute `docker compose pull` y `docker compose up -d`.

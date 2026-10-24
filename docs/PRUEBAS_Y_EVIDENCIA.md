@@ -2,9 +2,9 @@
 
 Revisión del 24 de octubre de 2026. La API se probó con PostgreSQL real, SMTP local y un servidor local que recibe las peticiones del SDK S3. Esto comprueba el código; la evidencia del examen requiere además tu bucket S3, tu buzón y la imagen realmente publicada.
 
-Al revisar GitHub, el PR #1 seguía en borrador sin integrar en `main`; no había Secrets de Docker Hub ni ejecuciones de Actions. No existía un `.env` local configurado. Completa los pasos siguientes antes de grabar.
+Docker Hub y GitHub ya quedaron configurados para esta cuenta: PR #1 integrado en `main`, Secrets guardados y [publicación inicial en verde](https://github.com/JorgeZO/Examen1P-AguaFix-API/actions/runs/40129536399). La imagen pública es [jorgezo/aguafix-api:latest](https://hub.docker.com/r/jorgezo/aguafix-api). Continúa con S3 en el paso 2; el paso 1 se conserva como referencia. El bucket y el correo reales todavía requieren configuración.
 
-## 1. Docker Hub y GitHub
+## 1. Docker Hub y GitHub — ya configurados en este proyecto
 
 1. Entra a [Docker Hub](https://hub.docker.com/) con tu cuenta y crea un repositorio **público** llamado `aguafix-api`.
 2. En Docker Home → tu avatar → Account settings → Personal access tokens, genera un token con permisos para leer y publicar imágenes. Copia el token para guardarlo directamente en GitHub. [Instrucciones oficiales de Docker](https://docs.docker.com/security/access-tokens/personal-access-tokens/).

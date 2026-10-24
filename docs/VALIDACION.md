@@ -20,7 +20,7 @@ Validación original del 15 de octubre de 2026 y revisión completa repetida el 
 
 ## Docker ejecutado
 
-Se volvió a construir la imagen con el Dockerfile de `node:22-alpine` **para Linux AMD64 y ARM64** el 24 de octubre. Se ejecutó el Compose de entrega con la imagen local nativa ARM64 para verificarla. No se descargó una imagen publicada propia en Docker Hub.
+Se volvió a construir la imagen con el Dockerfile de `node:22-alpine` **para Linux AMD64 y ARM64** el 24 de octubre. Además de probar la imagen local, se descargó `jorgezo/aguafix-api:latest` desde Docker Hub y se volvió a ejecutar el Compose de entrega con esa imagen publicada, en ARM64.
 
 Se comprobó en contenedores:
 
@@ -31,13 +31,21 @@ Se comprobó en contenedores:
 5. La API se ejecuta como usuario `node`, UID 1000.
 6. Se eliminaron los contenedores y el volumen temporal utilizados para verificar.
 
-Los servidores SMTP y HTTP del protocolo S3 eran dobles locales. Estas verificaciones no acreditan entrega a un buzón externo, permisos públicos de un bucket AWS ni publicación en Docker Hub.
+Los servidores SMTP y HTTP del protocolo S3 eran dobles locales. Estas pruebas de la API todavía no acreditan entrega a un buzón externo ni permisos de un bucket AWS real. La publicación en Docker Hub sí se verificó por separado, como se indica abajo.
 
-## CI y publicación pendientes de la cuenta
+## CI y publicación verificadas
 
 El workflow se dispara con push a `main`, hace login con `secrets.DOCKER_USER` y `secrets.DOCKER_PASSWORD` y construye/publica `latest` para AMD64 y ARM64. Las referencias de las Actions se fijaron a sus commits oficiales.
 
-Al revisar el repositorio el 24 de octubre: PR #1 abierto en borrador, sin integrar; `main` en el commit `23ea676` del primer parcial; cero Secrets de Actions y cero ejecuciones de workflows. No existía un `.env` local configurado. Los Secrets de Docker Hub todavía no estaban configurados. Falta agregarlos, crear el repositorio público de Docker Hub y ejecutar el workflow en `main`. La ejecución verde y la URL final de la imagen deben comprobarse después de esos pasos.
+Se configuraron los Secrets `DOCKER_USER` y `DOCKER_PASSWORD`, se creó el repositorio público `jorgezo/aguafix-api` y se integró el PR #1 en `main`, commit `177b6cc`.
+
+- [GitHub Actions: publicación inicial correcta](https://github.com/JorgeZO/Examen1P-AguaFix-API/actions/runs/40129536399), conclusión `success`.
+- [Imagen pública en Docker Hub](https://hub.docker.com/r/jorgezo/aguafix-api), tag `latest`.
+- La API pública de Docker Hub confirmó las plataformas `linux/amd64` y `linux/arm64`.
+- La primera publicación registrada fue `2026-10-24T20:25:16Z` (14:25, hora de Ciudad de México).
+- Se descargó la imagen pública y se verificaron nuevamente migraciones, POST con foto, correo con `<img>`, cierre y GET, usando PostgreSQL y receptores S3/SMTP locales.
+
+## Configuración restante
 
 También se requiere configurar el bucket/identidad AWS y el proveedor SMTP reales en `.env`. No se incorporaron credenciales reales al código, al Dockerfile, al workflow ni al repositorio.
 
