@@ -20,9 +20,6 @@ jobs:
       - name: Descargar repositorio
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - name: Preparar emulación ARM64
-        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
-
       - name: Preparar Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
@@ -40,3 +37,10 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ secrets.DOCKER_USER }}/aguafix-api:latest
+
+      - name: Comprobar imagen publicada
+        env:
+          IMAGE: ${{ secrets.DOCKER_USER }}/aguafix-api:latest
+        run: >-
+          docker run --rm --pull always --entrypoint node "$IMAGE"
+          -e 'require("@aws-sdk/client-s3"); require("@nestjs/core"); require("bcryptjs"); require("nodemailer"); require("typeorm"); console.log("Imagen publicada: dependencias cargadas correctamente");'

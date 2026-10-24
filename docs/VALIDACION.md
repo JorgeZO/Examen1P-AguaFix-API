@@ -35,7 +35,7 @@ Los servidores SMTP y HTTP del protocolo S3 eran dobles locales. Estas pruebas d
 
 ## CI y publicación verificadas
 
-El workflow se dispara con push a `main`, hace login con `secrets.DOCKER_USER` y `secrets.DOCKER_PASSWORD` y construye/publica `latest` para AMD64 y ARM64. Las referencias de las Actions se fijaron a sus commits oficiales.
+El workflow se dispara con push a `main`, hace login con `secrets.DOCKER_USER` y `secrets.DOCKER_PASSWORD` y construye/publica `latest` para AMD64 y ARM64. Las referencias de las Actions se fijaron a sus commits oficiales. La construcción usa `BUILDPLATFORM` para compilar TypeScript e instalar las dependencias JavaScript en la arquitectura del runner; las imágenes finales mantienen su arquitectura AMD64/ARM64. Se comprobó que las dependencias de producción no contienen módulos `.node`. Esto evita ejecutar npm con emulación QEMU. El workflow descarga la imagen publicada y comprueba que sus dependencias se puedan cargar antes de concluir.
 
 Se configuraron los Secrets `DOCKER_USER` y `DOCKER_PASSWORD`, se creó el repositorio público `jorgezo/aguafix-api` y se integró el PR #1 en `main`, commit `177b6cc`.
 

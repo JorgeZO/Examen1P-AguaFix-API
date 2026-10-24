@@ -86,7 +86,7 @@ Cree un repositorio **público** llamado `aguafix-api` en Docker Hub. En GitHub 
 
 El workflow `.github/workflows/docker-publish.yaml` se ejecuta con cada push a `main` y admite ejecución manual. Inicia sesión con esos Secrets, construye para Linux AMD64 y ARM64 y publica `DOCKER_USER/aguafix-api:latest`. AWS, SMTP y la base de datos solo se configuran al ejecutar la API; no se usan durante la construcción.
 
-El Dockerfile usa `node:22-alpine`, compila TypeScript y ejecuta `node dist/main` como usuario `node`. Copia únicamente dependencias, `dist` y `package.json` a la etapa final. `.dockerignore` excluye `.env`, todos los Compose, `node_modules`, `dist` y `.git`.
+El Dockerfile usa `node:22-alpine`, compila TypeScript y ejecuta `node dist/main` como usuario `node`. Las etapas de compilación y dependencias usan `BUILDPLATFORM`: preparan el JavaScript en la arquitectura del constructor y lo copian a las imágenes finales AMD64/ARM64. Las dependencias actuales no incluyen módulos binarios nativos; la construcción no necesita QEMU. Copia únicamente dependencias, `dist` y `package.json` a la etapa final. `.dockerignore` excluye `.env`, todos los Compose, `node_modules`, `dist` y `.git`.
 
 Cuando el workflow termine en verde, complete `DOCKER_USER` en `.env`. Para ejecutar la imagen publicada:
 
