@@ -29,7 +29,7 @@ export class ReportsController {
     const template = generateReportTemplate(dto, report.photoUrl!);
     await this.emailService.sendEmail(
       envs.maintenanceEmail,
-      'Nuevo reporte de fuga de agua',
+      'AguaFix: nuevo reporte de fuga de agua',
       template,
     );
 
